@@ -3,10 +3,10 @@ AIGC:
   ContentProducer: '001191110102MAD55U9H0F10002'
   ContentPropagator: '001191110102MAD55U9H0F10002'
   Label: '1'
-  ProduceID: '55a95cae-c1ce-4738-a132-1239afbe3db3'
-  PropagateID: '55a95cae-c1ce-4738-a132-1239afbe3db3'
-  ReservedCode1: '40af9695-e92d-440c-a7f9-1bd63bafddcf'
-  ReservedCode2: '40af9695-e92d-440c-a7f9-1bd63bafddcf'
+  ProduceID: 'f2b7487c-15cd-4ceb-bc89-dbf1b13c51fa'
+  PropagateID: 'f2b7487c-15cd-4ceb-bc89-dbf1b13c51fa'
+  ReservedCode1: '5e109181-df46-415b-a0ad-81c121e37bea'
+  ReservedCode2: '5e109181-df46-415b-a0ad-81c121e37bea'
 ---
 
 # 俄罗斯方块 · Tetris
@@ -15,7 +15,7 @@ AIGC:
 
 ## 在线体验（GitHub Pages）
 
-推送并启用 Pages 后，访问地址将显示在这里。
+https://arbingan.github.io/tetris-test/
 
 ## 玩法与操作
 
