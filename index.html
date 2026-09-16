@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>俄罗斯方块 · Tetris</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='6' height='6' rx='1' fill='%234a9eff'/%3E%3Crect x='8' y='1' width='6' height='6' rx='1' fill='%236fd69a'/%3E%3Crect x='1' y='8' width='6' height='6' rx='1' fill='%23f7c744'/%3E%3Crect x='8' y='8' width='6' height='6' rx='1' fill='%23f28c8c'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --blue: #4a9eff;
+    --blue-dark: #2f7de0;
+    --blue-light: #e8f2fd;
+    --bg: #f4f8fc;
+    --card: #ffffff;
+    --text: #2c3e50;
+    --text-sub: #7a8ca0;
+    --border: #dce8f4;
+    --shadow: 0 2px 12px rgba(74, 158, 255, .12);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(180deg, #f8fbfe 0%, var(--bg) 100%);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 16px 12px 24px;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+  header { text-align: center; margin-bottom: 14px; }
+  header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--blue-dark);
+  }
+  header h1 span { color: var(--blue); }
+  header p { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+
+  .layout { display: flex; gap: 14px; align-items: flex-start; }
+
+  .board-wrap {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: var(--shadow);
+  }
+  canvas { display: block; border-radius: 6px; }
+
+  .side { width: 148px; display: flex; flex-direction: column; gap: 10px; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: var(--shadow);
+  }
+  .panel h2 {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-sub);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .panel .val { font-size: 22px; font-weight: 700; color: var(--blue-dark); font-variant-numeric: tabular-nums; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #nextCanvas { background: var(--blue-light); border-radius: 6px; margin: 0 auto; }
+
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  button:hover { border-color: var(--blue); color: var(--blue-dark); }
+  button.primary {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+  }
+  button.primary:hover { background: var(--blue-dark); }
+
+  .help {
+    font-size: 11px;
+    color: var(--text-sub);
+    line-height: 1.8;
+    margin-top: 14px;
+    text-align: center;
+  }
+  .help kbd {
+    background: var(--blue-light);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0 5px;
+    font-family: inherit;
+    font-size: 10px;
+    color: var(--blue-dark);
+  }
+
+  /* 毛玻璃遮罩 */
+  .overlay {
+    position: absolute;
+    inset: 8px;
+    border-radius: 6px;
+    background: rgba(244, 248, 252, .72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .overlay h3 { font-size: 20px; color: var(--blue-dark); }
+  .overlay p { font-size: 12px; color: var(--text-sub); }
+  .overlay button { width: 110px; }
+
+  /* 移动端虚拟按键 */
+  .touch { display: none; margin-top: 14px; gap: 10px; }
+  .touch button {
+    font-size: 20px;
+    width: 58px;
+    height: 52px;
+    border-radius: 12px;
+    background: var(--card);
+  }
+  @media (max-width: 640px) {
+    .layout { flex-direction: column; align-items: center; }
+    .side { width: 100%; max-width: 320px; flex-direction: row; flex-wrap: wrap; }
+    .side .panel { flex: 1; min-width: 90px; }
+    .touch { display: flex; justify-content: center; }
+    .help .kbd-row { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TET<span>RIS</span> 俄罗斯方块</h1>
+  <p>AI研究院 · Test · 仅测试使用</p>
+</header>
+
+<div class="layout">
+  <div class="board-wrap">
+    <canvas id="board" width="300" height="600"></canvas>
+    <div class="overlay" id="overlay">
+      <h3 id="ovTitle">准备开始</h3>
+      <p id="ovText">消除方块，挑战高分！</p>
+      <button class="primary" id="ovBtn">开始游戏</button>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="panel">
+      <h2>下一个</h2>
+      <canvas id="nextCanvas" width="112" height="84"></canvas>
+    </div>
+    <div class="panel">
+      <h2>分数</h2>
+      <div class="val" id="score">0</div>
+    </div>
+    <div class="panel">
+      <h2>最高分</h2>
+      <div class="val" id="best">0</div>
+    </div>
+    <div class="stats">
+      <div class="panel">
+        <h2>等级</h2>
+        <div class="val" id="level">1</div>
+      </div>
+      <div class="panel">
+        <h2>行数</h2>
+        <div class="val" id="lines">0</div>
+      </div>
+    </div>
+    <div class="panel btns">
+      <button class="primary" id="btnStart">开始</button>
+      <button id="btnPause">暂停</button>
+      <button id="btnReset" style="grid-column: 1 / -1;">重新开始</button>
+    </div>
+  </div>
+</div>
+
+<div class="touch">
+  <button id="tLeft">←</button>
+  <button id="tRotate">↻</button>
+  <button id="tRight">→</button>
+  <button id="tDown">↓</button>
+  <button id="tDrop">⤓</button>
+</div>
+
+<p class="help">
+  <span class="kbd-row"><kbd>←</kbd><kbd>→</kbd> 移动 &nbsp; <kbd>↑</kbd>/<kbd>X</kbd> 旋转 &nbsp; <kbd>↓</kbd> 软降 &nbsp; <kbd>空格</kbd> 硬降 &nbsp; <kbd>P</kbd> 暂停 &nbsp; <kbd>R</kbd> 重开</span>
+</p>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- 常量 ----------
+  var COLS = 10, ROWS = 20, CELL = 30;
+  var COLORS = {
+    I: '#5bc8f5', O: '#f7c744', T: '#b388f0',
+    S: '#6fd69a', Z: '#f28c8c', J: '#6a9bff', L: '#f0a35e'
+  };
+  var SHAPES = {
+    I: [[1, 1, 1, 1]],
+    O: [[1, 1], [1, 1]],
+    T: [[0, 1, 0], [1, 1, 1]],
+    S: [[0, 1, 1], [1, 1, 0]],
+    Z: [[1, 1, 0], [0, 1, 1]],
+    J: [[1, 0, 0], [1, 1, 1]],
+    L: [[0, 0, 1], [1, 1, 1]]
+  };
+  var KEYS = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
+  var LINE_SCORE = [0, 100, 300, 500, 800];
+
+  // ---------- DOM ----------
+  var boardCv = document.getElementById('board');
+  var ctx = boardCv.getContext('2d');
+  var nextCv = document.getElementById('nextCanvas');
+  var nctx = nextCv.getContext('2d');
+  var $score = document.getElementById('score');
+  var $best = document.getElementById('best');
+  var $level = document.getElementById('level');
+  var $lines = document.getElementById('lines');
+  var $overlay = document.getElementById('overlay');
+  var $ovTitle = document.getElementById('ovTitle');
+  var $ovText = document.getElementById('ovText');
+  var $ovBtn = document.getElementById('ovBtn');
+
+  // ---------- 状态 ----------
+  var grid, cur, next, bag = [], score, lines, level, best;
+  var dropCounter = 0, dropInterval = 1000, lastTime = 0;
+  var running = false, paused = false, over = false;
+
+  best = parseInt(localStorage.getItem('tetris-best') || '0', 10) || 0;
+  $best.textContent = best;
+
+  // ---------- 工具 ----------
+  function newGrid() {
+    var g = [];
+    for (var r = 0; r < ROWS; r++) g.push(new Array(COLS).fill(null));
+    return g;
+  }
+  function rotate(m) {
+    // 顺时针旋转：转置 + 行反转
+    var rows = m.length, cols = m[0].length, out = [];
+    for (var c = 0; c < cols; c++) {
+      var row = [];
+      for (var r = rows - 1; r >= 0; r--) row.push(m[r][c]);
+      out.push(row);
+    }
+    return out;
+  }
+  function takeFromBag() {
+    if (bag.length === 0) {
+      bag = KEYS.slice();
+      for (var i = bag.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = bag[i]; bag[i] = bag[j]; bag[j] = t;
+      }
+    }
+    return bag.pop();
+  }
+  function spawnPiece(key) {
+    var k = key || takeFromBag();
+    var m = SHAPES[k].map(function (row) { return row.slice(); });
+    return { type: k, m: m, x: Math.floor((COLS - m[0].length) / 2), y: 0 };
+  }
+  function collide(piece, m, px, py) {
+    for (var r = 0; r < m.length; r++) {
+      for (var c = 0; c < m[r].length; c++) {
+        if (!m[r][c]) continue;
+        var gx = px + c, gy = py + r;
+        if (gx < 0 || gx >= COLS || gy >= ROWS) return true;
+        if (gy >= 0 && grid[gy][gx]) return true;
+      }
+    }
+    return false;
+  }
+  function merge() {
+    cur.m.forEach(function (row, r) {
+      row.forEach(function (v, c) {
+        if (v && cur.y + r >= 0) grid[cur.y + r][cur.x + c] = cur.type;
+      });
+    });
+  }
+  function clearLines() {
+    var cleared = 0;
+    for (var r = ROWS - 1; r >= 0; r--) {
+      if (grid[r].every(function (v) { return v; })) {
+        grid.splice(r, 1);
+        grid.unshift(new Array(COLS).fill(null));
+        cleared++;
+        r++; // 同一位置再检查一次
+      }
+    }
+    if (cleared > 0) {
+      score += LINE_SCORE[cleared] * level;
+      lines += cleared;
+      var newLevel = Math.floor(lines / 10) + 1;
+      if (newLevel > level) {
+        level = newLevel;
+        dropInterval = Math.max(80, 1000 - (level - 1) * 90);
+      }
+      if (score > best) {
+        best = score;
+        localStorage.setItem('tetris-best', String(best));
+        $best.textContent = best;
+      }
+      updateHud();
+    }
+  }
+  function updateHud() {
+    $score.textContent = score;
+    $level.textContent = level;
+    $lines.textContent = lines;
+  }
+
+  // ---------- 绘制 ----------
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+  function drawCell(c, x, y, color, alpha, ghost) {
+    var px = x * CELL, py = y * CELL;
+    c.save();
+    c.globalAlpha = alpha == null ? 1 : alpha;
+    if (ghost) {
+      c.strokeStyle = color;
+      c.lineWidth = 2;
+      roundRect(c, px + 3, py + 3, CELL - 6, CELL - 6, 5);
+      c.stroke();
+    } else {
+      c.fillStyle = color;
+      roundRect(c, px + 1.5, py + 1.5, CELL - 3, CELL - 3, 5);
+      c.fill();
+      c.fillStyle = 'rgba(255,255,255,.28)';
+      roundRect(c, px + 4, py + 4, CELL - 8, (CELL - 8) / 2.2, 4);
+      c.fill();
+    }
+    c.restore();
+  }
+  function ghostY() {
+    var y = cur.y;
+    while (!collide(cur, cur.m, cur.x, y + 1)) y++;
+    return y;
+  }
+  function draw() {
+    // 棋盘底：细网格
+    ctx.fillStyle = '#f7fafd';
+    ctx.fillRect(0, 0, COLS * CELL, ROWS * CELL);
+    ctx.strokeStyle = 'rgba(74,158,255,.08)';
+    ctx.lineWidth = 1;
+    for (var r = 1; r < ROWS; r++) {
+      ctx.beginPath(); ctx.moveTo(0, r * CELL + .5); ctx.lineTo(COLS * CELL, r * CELL + .5); ctx.stroke();
+    }
+    for (var c = 1; c < COLS; c++) {
+      ctx.beginPath(); ctx.moveTo(c * CELL + .5, 0); ctx.lineTo(c * CELL + .5, ROWS * CELL); ctx.stroke();
+    }
+    // 已落方块
+    grid.forEach(function (row, rr) {
+      row.forEach(function (v, cc) {
+        if (v) drawCell(ctx, cc, rr, COLORS[v]);
+      });
+    });
+    if (cur) {
+      var gy = ghostY();
+      // 幽灵落点
+      cur.m.forEach(function (row, rr) {
+        row.forEach(function (v, cc) {
+          if (v && gy + rr >= 0) drawCell(ctx, cur.x + cc, gy + rr, COLORS[cur.type], .45, true);
+        });
+      });
+      // 当前方块
+      cur.m.forEach(function (row, rr) {
+        row.forEach(function (v, cc) {
+          if (v && cur.y + rr >= 0) drawCell(ctx, cur.x + cc, cur.y + rr, COLORS[cur.type]);
+        });
+      });
+    }
+  }
+  function drawNext() {
+    nctx.clearRect(0, 0, nextCv.width, nextCv.height);
+    if (!next) return;
+    var m = next.m, color = COLORS[next.type];
+    var cell = 22;
+    var ox = (nextCv.width - m[0].length * cell) / 2;
+    var oy = (nextCv.height - m.length * cell) / 2;
+    m.forEach(function (row, r) {
+      row.forEach(function (v, c) {
+        if (!v) return;
+        var px = ox + c * cell, py = oy + r * cell;
+        nctx.fillStyle = color;
+        roundRect(nctx, px + 1.5, py + 1.5, cell - 3, cell - 3, 4);
+        nctx.fill();
+        nctx.fillStyle = 'rgba(255,255,255,.28)';
+        roundRect(nctx, px + 3.5, py + 3.5, cell - 7, (cell - 7) / 2.2, 3);
+        nctx.fill();
+      });
+    });
+  }
+
+  // ---------- 游戏流程 ----------
+  function reset() {
+    grid = newGrid();
+    bag = [];
+    score = 0; lines = 0; level = 1;
+    dropInterval = 1000; dropCounter = 0;
+    over = false; paused = false;
+    cur = spawnPiece();
+    next = spawnPiece();
+    updateHud();
+    drawNext();
+    draw();
+  }
+  function start() {
+    reset();
+    running = true;
+    hideOverlay();
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
+  }
+  function togglePause() {
+    if (!running || over) return;
+    paused = !paused;
+    if (paused) {
+      showOverlay('已暂停', '休息一下～', '继续');
+    } else {
+      hideOverlay();
+      lastTime = performance.now();
+    }
+  }
+  function gameOver() {
+    running = false; over = true;
+    showOverlay('游戏结束', '得分 ' + score + (score >= best && score > 0 ? ' · 新纪录！' : ''), '再来一局');
+  }
+  function showOverlay(title, text, btn) {
+    $ovTitle.textContent = title;
+    $ovText.textContent = text;
+    $ovBtn.textContent = btn;
+    $overlay.classList.add('show');
+  }
+  function hideOverlay() {
+    $overlay.classList.remove('show');
+  }
+
+  function hardDrop() {
+    if (!running || paused || over) return;
+    var gy = ghostY();
+    score += (gy - cur.y) * 2;
+    cur.y = gy;
+    lock();
+  }
+  function lock() {
+    merge();
+    clearLines();
+    if (collide(null, [[1]], 0, 0) && cur.y < 0) { /* 顶部溢出在下一步判断 */ }
+    cur = next;
+    next = spawnPiece();
+    drawNext();
+    if (collide(cur, cur.m, cur.x, cur.y)) {
+      // 新方块一出生就碰撞 → 游戏结束
+      draw();
+      updateHud();
+      gameOver();
+      return;
+    }
+    dropCounter = 0;
+    updateHud();
+  }
+
+  // ---------- 主循环 ----------
+  function loop(time) {
+    if (!running) return;
+    if (!paused) {
+      var dt = time - lastTime;
+      dropCounter += dt;
+      if (dropCounter > dropInterval) {
+        dropCounter = 0;
+        if (!collide(cur, cur.m, cur.x, cur.y + 1)) {
+          cur.y++;
+        } else {
+          // 顶部锁死判断：方块在负行也要能落地；若锁定时整体在 0 行之上则结束
+          lock();
+          if (over) { draw(); return; }
+        }
+      }
+      draw();
+    }
+    lastTime = time;
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- 操作 ----------
+  function move(dx) {
+    if (!running || paused || over) return;
+    if (!collide(cur, cur.m, cur.x + dx, cur.y)) { cur.x += dx; draw(); }
+  }
+  function softDrop() {
+    if (!running || paused || over) return;
+    if (!collide(cur, cur.m, cur.x, cur.y + 1)) {
+      cur.y++;
+      score += 1;
+      dropCounter = 0;
+      updateHud();
+      draw();
+    } else {
+      lock();
+      if (over) draw();
+    }
+  }
+  function tryRotate() {
+    if (!running || paused || over) return;
+    var m = rotate(cur.m);
+    // 简单墙踢：尝试原位、左右平移 1~2 格
+    var kicks = [0, -1, 1, -2, 2];
+    for (var i = 0; i < kicks.length; i++) {
+      if (!collide(cur, m, cur.x + kicks[i], cur.y)) {
+        cur.m = m;
+        cur.x += kicks[i];
+        draw();
+        return;
+      }
+    }
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.repeat && (e.key === ' ' || e.key === 'ArrowDown')) return; // 防长按硬降
+    switch (e.key) {
+      case 'ArrowLeft': move(-1); break;
+      case 'ArrowRight': move(1); break;
+      case 'ArrowDown': softDrop(); break;
+      case 'ArrowUp': case 'x': case 'X': tryRotate(); break;
+      case ' ': e.preventDefault(); hardDrop(); break;
+      case 'p': case 'P': togglePause(); break;
+      case 'r': case 'R': start(); break;
+    }
+    if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp'].indexOf(e.key) >= 0) e.preventDefault();
+  });
+
+  // 按钮
+  document.getElementById('btnStart').addEventListener('click', start);
+  document.getElementById('btnReset').addEventListener('click', start);
+  document.getElementById('btnPause').addEventListener('click', togglePause);
+  $ovBtn.addEventListener('click', function () {
+    if (over) { start(); }
+    else if (paused) { togglePause(); }
+    else { start(); }
+  });
+
+  // 触屏按键
+  function bind(id, fn) {
+    var el = document.getElementById(id);
+    el.addEventListener('touchstart', function (e) { e.preventDefault(); fn(); }, { passive: false });
+    el.addEventListener('mousedown', fn);
+  }
+  bind('tLeft', function () { move(-1); });
+  bind('tRight', function () { move(1); });
+  bind('tRotate', tryRotate);
+  bind('tDown', softDrop);
+  bind('tDrop', hardDrop);
+
+  // 初始化画面
+  reset();
+  running = false;
+  showOverlay('准备开始', '消除方块，挑战高分！', '开始游戏');
+})();
+</script>
+</body>
+</html>
